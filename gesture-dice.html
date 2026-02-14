@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Palm Dice Duel</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#0b0b0f; color:#fff; }
+    .topbar{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.08);
+      position:sticky; top:0; background:rgba(11,11,15,.85); backdrop-filter: blur(8px);
+      z-index:10;
+    }
+    .pill { padding:6px 10px; border:1px solid rgba(255,255,255,.16); border-radius:999px; font-size:13px; opacity:.9; }
+    .btn{
+      background:#1b1b26; color:#fff; border:1px solid rgba(255,255,255,.16);
+      padding:10px 12px; border-radius:12px; cursor:pointer; font-weight:650;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.secondary{ background:transparent; }
+    .layout{ display:grid; grid-template-columns: 1.2fr .8fr; gap:14px; padding:14px; max-width:1150px; margin:0 auto; }
+    @media (max-width: 900px){ .layout{ grid-template-columns: 1fr; } }
+
+    .card{
+      background: rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:18px; overflow:hidden;
+      box-shadow: 0 10px 40px rgba(0,0,0,.35);
+    }
+    .card h3{ margin:0; padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.08); font-size:14px; letter-spacing:.2px; opacity:.9;}
+    .card .content{ padding:14px; }
+
+    #stageWrap{ position:relative; display:grid; place-items:center; aspect-ratio: 16/10; min-height: 320px; }
+    #stage{ width:100%; height:100%; display:block; }
+    #mini{
+      position:absolute; right:10px; bottom:10px;
+      width:180px; height:135px; border-radius:14px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.15);
+    }
+
+    .hint{ font-size:13px; opacity:.85; line-height:1.35; }
+    .big{ font-size:18px; font-weight:900; letter-spacing:.2px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .spacer{ height:10px; }
+    .muted{ opacity:.75; }
+
+    table{ width:100%; border-collapse:collapse; font-size:14px; }
+    th, td{ padding:10px 10px; border-bottom:1px solid rgba(255,255,255,.08); text-align:left; }
+    th{ opacity:.8; font-size:12px; letter-spacing:.3px; text-transform:uppercase; }
+
+    .badge{
+      position:absolute; top:12px; left:12px;
+      padding:6px 10px; border-radius:999px;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.14);
+      font-size:12px; opacity:0; transform: translateY(-6px);
+      transition: opacity .18s ease, transform .18s ease;
+      user-select:none;
+    }
+    .badge.show{ opacity:1; transform: translateY(0); }
+
+    .power{
+      position:absolute; top:12px; right:12px;
+      padding:6px 10px; border-radius:999px;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.14);
+      font-size:12px; user-select:none;
+    }
+
+    .toast{
+      position:fixed; left:50%; transform:translateX(-50%);
+      bottom:14px; padding:10px 12px;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:999px;
+      font-size:13px; opacity:0;
+      transition: opacity .2s ease;
+      pointer-events:none;
+      z-index:200;
+    }
+    .toast.show{ opacity:1; }
+
+    .modal{
+      position:fixed; inset:0; display:grid; place-items:center;
+      background: rgba(0,0,0,.65); backdrop-filter: blur(6px);
+      z-index: 150;
+    }
+    .modalBox{
+      width:min(560px, 92vw);
+      background:#11111a;
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:18px;
+      padding:16px;
+      box-shadow: 0 30px 80px rgba(0,0,0,.6);
+    }
+    .modalBox h2{ margin:0 0 10px; font-size:18px; }
+    .field{ display:flex; flex-direction:column; gap:6px; margin:10px 0; }
+    input{
+      padding:12px 12px; border-radius:12px;
+      border:1px solid rgba(255,255,255,.16);
+      background:#0b0b12; color:#fff; font-size:14px;
+      outline:none;
+    }
+    input:focus{ border-color: rgba(255,255,255,.28); }
+    .small{ font-size:12px; opacity:.75; }
+
+    .overlayWin{
+      position:absolute; inset:0; display:grid; place-items:center;
+      background: rgba(0,0,0,.62); backdrop-filter: blur(6px);
+      opacity:0; pointer-events:none;
+      transition: opacity .2s ease;
+      padding:14px;
+    }
+    .overlayWin.show{ opacity:1; pointer-events:auto; }
+    .overlayCard{
+      width:min(540px, 92vw);
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(17,17,26,.92);
+      border-radius:18px;
+      padding:16px;
+      box-shadow: 0 30px 80px rgba(0,0,0,.6);
+    }
+    .overlayCard .title{ font-size:20px; font-weight:950; margin:0 0 6px; }
+    .overlayCard .sub{ opacity:.85; margin:0 0 12px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="row">
+      <div class="pill">🖐️ Palm Dice Duel</div>
+      <div class="pill" id="statusPill">Camera: OFF</div>
+      <div class="pill" id="controlPill">Control: OFF</div>
+    </div>
+    <div class="row">
+      <button class="btn secondary" id="btnRules">Rules</button>
+      <button class="btn" id="btnResetAll">Restart players</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="card">
+      <h3>Stage</h3>
+      <div class="content" id="stageWrap">
+        <div class="badge" id="capturedBadge">✊ Captured</div>
+        <div class="power" id="powerBadge">Power: ░░░░░</div>
+
+        <canvas id="stage"></canvas>
+        <canvas id="mini" width="360" height="270" title="Debug view (camera)"></canvas>
+
+        <div class="overlayWin" id="winOverlay">
+          <div class="overlayCard">
+            <div class="title" id="winTitle">—</div>
+            <p class="sub" id="winSub">—</p>
+            <div class="row" style="justify-content:flex-end;">
+              <button class="btn secondary" id="btnNewMatch">Start new match (same players)</button>
+              <button class="btn" id="btnRestartPlayers2">Restart players</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hint" style="position:absolute; left:14px; bottom:14px; right:14px;">
+          <div class="big" id="turnLine">—</div>
+          <div class="muted" id="subLine">Control ON → PALM shows dice → PALM⇒FIST captures → move fist to charge → FIST⇒PALM throws.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Scoreboard</h3>
+      <div class="content">
+        <table>
+          <thead>
+            <tr><th>Player</th><th>Throws</th><th>Sum</th><th>Last</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td id="p1Name">—</td>
+              <td id="p1Throws" class="muted">0 / 0</td>
+              <td id="p1Sum" class="big">0</td>
+              <td id="p1Last" class="muted">—</td>
+            </tr>
+            <tr>
+              <td id="p2Name">—</td>
+              <td id="p2Throws" class="muted">0 / 0</td>
+              <td id="p2Sum" class="big">0</td>
+              <td id="p2Last" class="muted">—</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="spacer"></div>
+
+        <div class="row">
+          <div class="pill" id="gameState">Waiting…</div>
+          <div class="pill" id="gestureState">Gesture: —</div>
+          <div class="pill" id="phaseState">Phase: —</div>
+          <div class="pill">Freeze(s): <input id="freezeInput" type="number" min="0" max="30" value="3" style="width:60px; padding:2px 6px; border-radius:8px; border:1px solid rgba(255,255,255,.16); background:#0b0b12; color:#fff; outline:none;"></div>
+          <button class="btn secondary" id="btnToggleControl">Toggle control</button>
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="hint">
+          <b>Gestures</b><br>
+          • PALM = full open palm (your “whole palm” style)<br>
+          • FIST = closed fist<br>
+          • PALM ⇒ FIST = capture moment<br>
+          • FIST ⇒ PALM = throw moment
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="row">
+          <button class="btn" id="btnStart">Start Camera</button>
+          <button class="btn secondary" id="btnStop">Stop Camera</button>
+          <button class="btn secondary" id="btnNewMatch2">Start new match</button>
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="hint">
+          <b>Record (same pair)</b><br>
+          <div class="muted" id="recordLine">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="setupModal">
+    <div class="modalBox">
+      <h2>Game setup</h2>
+      <div class="small muted">Two names + throws each. Record stays for same pair (order doesn’t matter).</div>
+      <div class="field"><label class="small">Player 1</label><input id="inP1" placeholder="e.g., Alex" /></div>
+      <div class="field"><label class="small">Player 2</label><input id="inP2" placeholder="e.g., Sam" /></div>
+      <div class="field"><label class="small">Throws per player</label><input id="inRounds" type="number" min="1" max="50" value="3" /></div>
+      <div class="row" style="justify-content:flex-end; margin-top:12px;">
+        <button class="btn" id="btnGo">Let’s roll</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="small muted">After setup: Start Camera → Toggle Control ON.</div>
+    </div>
+  </div>
+
+  <div class="modal" id="rulesModal" style="display:none;">
+    <div class="modalBox">
+      <h2>Rules</h2>
+      <div class="hint">
+        1) PALM shows dice.<br>
+        2) PALM ⇒ FIST captures (dice goes high + hides).<br>
+        3) While FIST: speed builds power.<br>
+        4) FIST ⇒ PALM throws + rolls (direction = fist movement).<br><br>
+        Players alternate until finished. Highest sum wins. Record persists for the same pair.
+      </div>
+      <div class="row" style="justify-content:flex-end; margin-top:12px;">
+        <button class="btn" id="btnCloseRules">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">—</div>
+  <video id="video" playsinline style="display:none;"></video>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+  <script>
+    // ===== Tunables =====
+    const COOLDOWN_MS = 420;
+    const SPEED_CAP = 2.3;
+    const SPEED_SMOOTH_ALPHA = 0.22;
+    const POWER_MIN_THROW = 0.06; // always throw, tiny if low
+
+    let freezeSeconds = 3;       // user-controlled
+let blockUntilMs = 0;        // timestamp until which gestures are ignored
+    // ====================
+
+    function now(){ return performance.now(); }
+    function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
+    function lerp(a,b,t){ return a + (b-a)*t; }
+
+    const toast = document.getElementById('toast');
+    function showToast(msg){
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(()=>toast.classList.remove('show'), 900);
+    }
+
+    const statusPill = document.getElementById('statusPill');
+    const controlPill = document.getElementById('controlPill');
+    const powerBadge = document.getElementById('powerBadge');
+    const capturedBadge = document.getElementById('capturedBadge');
+
+    const gameStateEl = document.getElementById('gameState');
+    const gestureStateEl = document.getElementById('gestureState');
+    const phaseStateEl = document.getElementById('phaseState');
+
+    const turnLine = document.getElementById('turnLine');
+    const subLine = document.getElementById('subLine');
+
+    const p1NameEl = document.getElementById('p1Name');
+    const p2NameEl = document.getElementById('p2Name');
+    const p1ThrowsEl = document.getElementById('p1Throws');
+    const p2ThrowsEl = document.getElementById('p2Throws');
+    const p1SumEl = document.getElementById('p1Sum');
+    const p2SumEl = document.getElementById('p2Sum');
+    const p1LastEl = document.getElementById('p1Last');
+    const p2LastEl = document.getElementById('p2Last');
+
+    const recordLine = document.getElementById('recordLine');
+    const setupModal = document.getElementById('setupModal');
+    const rulesModal = document.getElementById('rulesModal');
+
+    const winOverlay = document.getElementById('winOverlay');
+    const winTitle = document.getElementById('winTitle');
+    const winSub = document.getElementById('winSub');
+
+    // Canvas
+    const stage = document.getElementById('stage');
+    const sctx = stage.getContext('2d');
+    const mini = document.getElementById('mini');
+    const mctx = mini.getContext('2d');
+
+    function resizeStage(){
+      const rect = stage.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      stage.width = Math.round(rect.width * dpr);
+      stage.height = Math.round(rect.height * dpr);
+      sctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    window.addEventListener('resize', resizeStage);
+
+    // Storage: record per pair (order-insensitive)
+    function normalizeName(s){ return (s || "").trim().replace(/\s+/g, " "); }
+    function pairKey(n1,n2){
+      const a = normalizeName(n1).toLowerCase();
+      const b = normalizeName(n2).toLowerCase();
+      return [a,b].sort().join("::");
+    }
+    const storage = {
+      get(key){ try { return JSON.parse(localStorage.getItem(key) || "null"); } catch { return null; } },
+      set(key,val){ localStorage.setItem(key, JSON.stringify(val)); },
+      del(key){ localStorage.removeItem(key); }
+    };
+
+    // Game state
+    const game = {
+      players: [
+        { name:'Player 1', sum:0, throws:0, last:null },
+        { name:'Player 2', sum:0, throws:0, last:null }
+      ],
+      throwsPerPlayer: 3,
+      turn: 0,
+      finished: false,
+      pairKey: null,
+      record: { matches:0, draws:0, winsByName:{} },
+    };
+
+    function updateScoreboard(){
+      const [p1,p2] = game.players;
+      p1NameEl.textContent = p1.name;
+      p2NameEl.textContent = p2.name;
+      p1ThrowsEl.textContent = `${p1.throws} / ${game.throwsPerPlayer}`;
+      p2ThrowsEl.textContent = `${p2.throws} / ${game.throwsPerPlayer}`;
+      p1SumEl.textContent = `${p1.sum}`;
+      p2SumEl.textContent = `${p2.sum}`;
+      p1LastEl.textContent = p1.last ?? '—';
+      p2LastEl.textContent = p2.last ?? '—';
+    }
+
+    function updateTurnUI(){
+      if (game.finished){
+        gameStateEl.textContent = "Finished";
+        return;
+      }
+      const p = game.players[game.turn];
+      turnLine.textContent = `Turn: ${p.name}`;
+      subLine.textContent = `Throws left: ${game.throwsPerPlayer - p.throws}. PALM⇒FIST capture, FIST⇒PALM throw.`;
+      gameStateEl.textContent = "Playing";
+    }
+
+    function updateRecordUI(){
+      const r = game.record;
+      const a = game.players[0].name;
+      const b = game.players[1].name;
+      const wa = r.winsByName[a] || 0;
+      const wb = r.winsByName[b] || 0;
+      recordLine.textContent = `Matches: ${r.matches} • ${a} wins: ${wa} • ${b} wins: ${wb} • Draws: ${r.draws}`;
+    }
+
+    function loadOrInitRecord(){
+      const key = game.pairKey;
+      const stored = storage.get("palmDiceRecord::" + key);
+      if (stored && typeof stored.matches === "number"){
+        game.record = stored;
+      } else {
+        game.record = { matches:0, draws:0, winsByName:{} };
+        storage.set("palmDiceRecord::" + key, game.record);
+      }
+      updateRecordUI();
+    }
+    function saveRecord(){
+      if (!game.pairKey) return;
+      storage.set("palmDiceRecord::" + game.pairKey, game.record);
+      updateRecordUI();
+    }
+
+    function showWinnerOverlay(){
+      const [p1,p2] = game.players;
+      let title = "Draw 🤝";
+      if (p1.sum > p2.sum) title = `Congratulations, ${p1.name}! 🏆`;
+      if (p2.sum > p1.sum) title = `Congratulations, ${p2.name}! 🏆`;
+      winTitle.textContent = title;
+      winSub.textContent = `Final score: ${p1.name} ${p1.sum} — ${p2.sum} ${p2.name}`;
+      winOverlay.classList.add('show');
+    }
+
+    function endGameAndRecord(){
+      game.finished = true;
+      const [p1,p2] = game.players;
+      game.record.matches += 1;
+      if (p1.sum === p2.sum){
+        game.record.draws += 1;
+      } else {
+        const winner = (p1.sum > p2.sum) ? p1.name : p2.name;
+        game.record.winsByName[winner] = (game.record.winsByName[winner] || 0) + 1;
+      }
+      saveRecord();
+      showWinnerOverlay();
+      gameStateEl.textContent = "Finished";
+    }
+
+    function nextTurn(){
+      const [p1,p2] = game.players;
+      if (p1.throws >= game.throwsPerPlayer && p2.throws >= game.throwsPerPlayer){
+        endGameAndRecord();
+        return;
+      }
+      game.turn = (game.turn + 1) % 2;
+      if (game.players[game.turn].throws >= game.throwsPerPlayer){
+        game.turn = (game.turn + 1) % 2;
+      }
+      updateTurnUI();
+    }
+
+    function commitRoll(value){
+      if (game.finished) return;
+      const p = game.players[game.turn];
+      if (p.throws >= game.throwsPerPlayer) return;
+      p.throws += 1;
+      p.sum += value;
+      p.last = value;
+      updateScoreboard();
+      showToast(`${p.name} rolled ${value}`);
+      // Freeze time after each roll (user-controlled)
+blockUntilMs = now() + (freezeSeconds * 1000);
+      setTimeout(nextTurn, 220);
+    }
+
+    function resetMatchOnly(){
+      game.players.forEach(p => { p.sum=0; p.throws=0; p.last=null; });
+      game.turn = 0;
+      game.finished = false;
+      winOverlay.classList.remove('show');
+      updateScoreboard();
+      updateTurnUI();
+      gameStateEl.textContent = "Ready";
+      dice.value = 1;
+      dice.state = STATE_OPEN;
+      dice.visibleAlpha = 1;
+      dice.scale = 1;
+      dice.lift = 0;
+      dice.anim = null;
+      dice.throwAnim = null;
+      setPowerUI(0);
+    }
+
+    function resetEverything(){
+      if (game.pairKey) storage.del("palmDiceRecord::" + game.pairKey);
+      game.pairKey = null;
+      game.record = { matches:0, draws:0, winsByName:{} };
+      updateRecordUI();
+      resetMatchOnly();
+      setupModal.style.display = 'grid';
+      showToast("Restarted players");
+    }
+
+    // Control toggle
+    let controlEnabled = false;
+    function setControlEnabled(v){
+      controlEnabled = !!v;
+      controlPill.textContent = `Control: ${controlEnabled ? "ON" : "OFF"}`;
+      document.getElementById('btnToggleControl').textContent = controlEnabled ? "Turn control OFF" : "Turn control ON";
+      if (!controlEnabled) setPowerUI(0);
+    }
+
+    // Dice state machine
+    const STATE_OPEN = 0;
+    const STATE_CAPTURING = 1;
+    const STATE_CAPTURED = 2;
+    const STATE_THROWING = 3;
+
+    const dice = {
+      value: 1,
+      state: STATE_OPEN,
+      visibleAlpha: 1,
+      scale: 1,
+      lift: 0, // makes it go "high"
+      anim: null,      // {t0,dur,fromA,toA,fromS,toS,fromL,toL}
+      throwAnim: null  // {t0,dur,from,to,rot0,rot1,bounce}
+    };
+
+    function startAnim(toA, toS, toL, dur){
+      const t = now();
+      dice.anim = {
+        t0: t, dur,
+        fromA: dice.visibleAlpha, toA,
+        fromS: dice.scale, toS,
+        fromL: dice.lift, toL
+      };
+    }
+
+    function setPowerUI(p){
+      const v = clamp(p,0,1);
+      const blocks = 5;
+      const filled = Math.round(v * blocks);
+      let s = "";
+      for (let i=0;i<blocks;i++) s += (i < filled ? "▓" : "░");
+      powerBadge.textContent = `Power: ${s}`;
+    }
+
+    // Draw dice
+    function drawDiceFace(ctx, x, y, size, value, rot=0, alpha=1, scale=1){
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(x, y);
+      ctx.rotate(rot);
+      ctx.scale(scale, scale);
+
+      const r = size * 0.16;
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = Math.max(1, size * 0.03);
+
+      const w = size, h = size;
+      ctx.beginPath();
+      const left = -w/2, top = -h/2;
+      ctx.moveTo(left + r, top);
+      ctx.arcTo(left + w, top, left + w, top + h, r);
+      ctx.arcTo(left + w, top + h, left, top + h, r);
+      ctx.arcTo(left, top + h, left, top, r);
+      ctx.arcTo(left, top, left + w, top, r);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      const dx = size * 0.22;
+      const dy = size * 0.22;
+      const pipR = size * 0.075;
+      const spots = {
+        1: [[0,0]],
+        2: [[-dx,-dy],[dx,dy]],
+        3: [[-dx,-dy],[0,0],[dx,dy]],
+        4: [[-dx,-dy],[dx,-dy],[-dx,dy],[dx,dy]],
+        5: [[-dx,-dy],[dx,-dy],[0,0],[-dx,dy],[dx,dy]],
+        6: [[-dx,-dy],[dx,-dy],[-dx,0],[dx,0],[-dx,dy],[dx,dy]],
+      }[value];
+
+      ctx.fillStyle = "rgba(0,0,0,0.78)";
+      for (const [sx,sy] of spots){
+        ctx.beginPath();
+        ctx.arc(sx, sy, pipR, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Speed & direction tracking while fist
+    const fistTrack = {
+      active: false, tStart:0, lastT:0, lastC:null,
+      maxSpeed:0, smoothMax:0,
+      sumVX:0, sumVY:0, samples:0,
+      power:0
+    };
+
+    function resetFistTrack(c){
+      const t = now();
+      fistTrack.active = true;
+      fistTrack.tStart = t;
+      fistTrack.lastT = t;
+      fistTrack.lastC = { ...c };
+      fistTrack.maxSpeed = 0;
+      fistTrack.smoothMax = 0;
+      fistTrack.sumVX = 0;
+      fistTrack.sumVY = 0;
+      fistTrack.samples = 0;
+      fistTrack.power = 0;
+      setPowerUI(0);
+    }
+
+    function updateFistTrack(c){
+      const t = now();
+      const dtMs = Math.max(1, t - fistTrack.lastT);
+      const dx = c.x - fistTrack.lastC.x;
+      const dy = c.y - fistTrack.lastC.y;
+
+      const instSpeed = Math.hypot(dx,dy) / (dtMs/1000);
+      fistTrack.maxSpeed = Math.max(fistTrack.maxSpeed, instSpeed);
+      fistTrack.smoothMax = lerp(fistTrack.smoothMax, fistTrack.maxSpeed, SPEED_SMOOTH_ALPHA);
+
+      const vx = dx / (dtMs/1000);
+      const vy = dy / (dtMs/1000);
+      fistTrack.sumVX += vx;
+      fistTrack.sumVY += vy;
+      fistTrack.samples += 1;
+
+      const p = clamp(fistTrack.smoothMax / SPEED_CAP, 0, 1);
+      fistTrack.power = p;
+      setPowerUI(p);
+
+      fistTrack.lastC = { ...c };
+      fistTrack.lastT = t;
+    }
+
+    function finalizeDirection(){
+      if (!fistTrack.samples) return {x:0, y:-1};
+      let vx = fistTrack.sumVX / fistTrack.samples;
+      let vy = fistTrack.sumVY / fistTrack.samples;
+      const mag = Math.hypot(vx,vy);
+      if (mag < 0.18) return {x:0, y:-1};
+      vx /= mag; vy /= mag;
+      return {x:vx, y:vy};
+    }
+
+    // --- NEW: robust PALM/FIST detection based on finger extension ---
+    // Landmark indices:
+    // thumb: 1,2,3,4
+    // index: 5,6,7,8
+    // middle: 9,10,11,12
+    // ring: 13,14,15,16
+    // pinky: 17,18,19,20
+    function vec(a,b){ return {x:b.x-a.x, y:b.y-a.y, z:(b.z||0)-(a.z||0)}; }
+    function dot(u,v){ return u.x*v.x + u.y*v.y + (u.z||0)*(v.z||0); }
+    function mag(u){ return Math.hypot(u.x,u.y,(u.z||0)); }
+    function angleDeg(a,b,c){ // angle ABC at b
+      const u = vec(b,a);
+      const v = vec(b,c);
+      const denom = (mag(u)*mag(v)) || 1e-6;
+      const cos = clamp(dot(u,v)/denom, -1, 1);
+      return Math.acos(cos) * 180 / Math.PI;
+    }
+    function dist2D(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+
+    function fingerExtended(lm, mcp, pip, tip){
+      // straightness: angle at PIP near 180 means straight
+      const ang = angleDeg(lm[mcp], lm[pip], lm[tip]);
+      // distance: tip further from wrist than pip (helps if camera angle changes)
+      const wrist = lm[0];
+      const dTip = dist2D(lm[tip], wrist);
+      const dPip = dist2D(lm[pip], wrist);
+      const farEnough = dTip > dPip * 1.06; // small margin
+      return (ang > 160) && farEnough;
+    }
+
+    function thumbExtended(lm){
+      // thumb is weird; use angle at IP (3) between (2-3-4)
+      const ang = angleDeg(lm[2], lm[3], lm[4]);
+      // and tip further from wrist than IP
+      const wrist = lm[0];
+      const dTip = dist2D(lm[4], wrist);
+      const dIp  = dist2D(lm[3], wrist);
+      return (ang > 150) && (dTip > dIp * 1.03);
+    }
+
+    function classifyPalmFist(lm){
+      const idx = fingerExtended(lm, 5, 6, 8);
+      const mid = fingerExtended(lm, 9,10,12);
+      const ring= fingerExtended(lm,13,14,16);
+      const pin = fingerExtended(lm,17,18,20);
+      const th  = thumbExtended(lm);
+
+      const openCount = [idx,mid,ring,pin,th].filter(Boolean).length;
+
+      // Open palm: at least 4 extended (thumb optional)
+      const isPalm = openCount >= 4 || (openCount === 3 && idx && mid && pin && th); // leniency
+      // Fist: 0-1 extended
+      const isFist = openCount <= 1;
+
+      // If in-between (2-3 fingers), treat as previous state will handle it.
+      return { isPalm, isFist, openCount };
+    }
+
+    // Hysteresis using previous state to avoid flicker in “in-between”
+    // lastOpen: true => PALM, false => FIST
+    function classifyPalmState(lm, lastOpen){
+      const r = classifyPalmFist(lm);
+      if (lastOpen === null){
+        // initial: prefer PALM if clearly palm, else FIST if clearly fist, else PALM (more forgiving)
+        if (r.isPalm) return true;
+        if (r.isFist) return false;
+        return true;
+      }
+      if (lastOpen === true){
+        // stay PALM unless clearly fist
+        if (r.isFist) return false;
+        return true;
+      } else {
+        // stay FIST unless clearly palm
+        if (r.isPalm) return true;
+        return false;
+      }
+    }
+
+    function handCenter(lm){
+      let x=0,y=0;
+      for (const p of lm){ x += p.x; y += p.y; }
+      return { x: x/lm.length, y: y/lm.length };
+    }
+
+    // Map normalized hand pos to stage coords (mirror X)
+    function handToStage(cNorm){
+      const w = stage.clientWidth, h = stage.clientHeight;
+      return { x: (1 - cNorm.x) * w, y: cNorm.y * h };
+    }
+
+    // Render loop
+    function render(){
+      const w = stage.clientWidth;
+      const h = stage.clientHeight;
+
+      sctx.clearRect(0,0,w,h);
+      const g = sctx.createRadialGradient(w*0.5,h*0.35, 20, w*0.5,h*0.35, Math.max(w,h));
+      g.addColorStop(0, "rgba(255,255,255,0.08)");
+      g.addColorStop(1, "rgba(255,255,255,0.00)");
+      sctx.fillStyle = g;
+      sctx.fillRect(0,0,w,h);
+
+      if (dice.anim){
+        const t = clamp((now() - dice.anim.t0)/dice.anim.dur, 0, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        dice.visibleAlpha = lerp(dice.anim.fromA, dice.anim.toA, ease);
+        dice.scale = lerp(dice.anim.fromS, dice.anim.toS, ease);
+        dice.lift = lerp(dice.anim.fromL, dice.anim.toL, ease);
+        if (t >= 1) dice.anim = null;
+      }
+
+      capturedBadge.classList.toggle('show', dice.state === STATE_CAPTURED || dice.state === STATE_CAPTURING);
+
+      const baseSize = Math.min(w,h) * 0.28;
+
+      if (dice.throwAnim){
+        const ta = dice.throwAnim;
+        const t = clamp((now() - ta.t0) / ta.dur, 0, 1);
+        const ease = t<.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2;
+        const bounce = Math.sin(Math.PI * ease) * ta.bounce;
+
+        const x = lerp(ta.from.x, ta.to.x, ease);
+        const y = lerp(ta.from.y, ta.to.y, ease) - bounce;
+        const rot = lerp(ta.rot0, ta.rot1, ease);
+
+        const flicker = (t < 0.90) ? (1 + ((Math.random()*6)|0)) : dice.value;
+        drawDiceFace(sctx, x, y, baseSize, flicker, rot, 1, 1);
+
+        if (t >= 1){
+          dice.throwAnim = null;
+          dice.state = STATE_OPEN;
+          startAnim(1, 1, 0, 180); // settle back
+        }
+        requestAnimationFrame(render);
+        return;
+      }
+
+      const liftPx = lerp(0, Math.min(w,h) * 0.14, dice.lift);
+      const cx = w*0.5;
+      const cy = h*0.45 - liftPx;
+
+      if (dice.visibleAlpha > 0.01){
+        drawDiceFace(sctx, cx, cy, baseSize, dice.value, 0, dice.visibleAlpha, dice.scale);
+      } else {
+        sctx.save();
+        sctx.fillStyle = "rgba(255,255,255,.06)";
+        sctx.font = "600 14px system-ui";
+        sctx.textAlign = "center";
+        sctx.fillText("Dice is captured in your fist… ✊", cx, cy);
+        sctx.restore();
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    // MediaPipe
+    let lastOpen = null;
+    let lastGestureAt = 0;
+    function canTrigger(){ return (now() - lastGestureAt) > COOLDOWN_MS; }
+
+    function updateGestureUI(open){
+      gestureStateEl.textContent = `Gesture: ${open ? "PALM" : "FIST"}`;
+      statusPill.textContent = `Camera: ON • ${open ? "PALM ✅" : "FIST ✅"}`;
+    }
+
+    const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.65,
+      minTrackingConfidence: 0.65,
+    });
+
+    hands.onResults((results) => {
+      mctx.clearRect(0,0,mini.width,mini.height);
+      mctx.drawImage(results.image, 0, 0, mini.width, mini.height);
+
+      if (!(results.multiHandLandmarks && results.multiHandLandmarks.length)){
+        statusPill.textContent = camera ? "Camera: ON • No hand…" : "Camera: OFF";
+        gestureStateEl.textContent = "Gesture: —";
+        phaseStateEl.textContent = "Phase: —";
+        lastOpen = null;
+        if (fistTrack.active){ fistTrack.active = false; setPowerUI(0); }
+        return;
+      }
+
+      const lm = results.multiHandLandmarks[0];
+      drawConnectors(mctx, lm, HAND_CONNECTIONS, { lineWidth: 2 });
+      drawLandmarks(mctx, lm, { lineWidth: 1 });
+
+      const open = classifyPalmState(lm, lastOpen);
+
+      // Phase UI
+      let phaseText = open ? "PALM" : "FIST";
+      if (lastOpen === true && open === false) phaseText = "PALM ⇒ FIST";
+      if (lastOpen === false && open === true) phaseText = "FIST ⇒ PALM";
+      phaseStateEl.textContent = "Phase: " + phaseText;
+
+      updateGestureUI(open);
+
+      if (!controlEnabled){
+        lastOpen = open;
+        return;
+        }
+
+        // Freeze block: ignore gesture triggers for a few seconds after each roll
+        if (now() < blockUntilMs){
+        lastOpen = open;
+        return;
+        }
+
+      const c = handCenter(lm);
+      const t = now();
+
+      if (!open){
+        if (!fistTrack.active) resetFistTrack(c);
+        else updateFistTrack(c);
+      }
+
+      if (!canTrigger()){
+        lastOpen = open;
+        return;
+      }
+
+      // PALM => FIST capture
+      if (lastOpen === true && open === false && dice.state === STATE_OPEN){
+        lastGestureAt = t;
+        dice.state = STATE_CAPTURING;
+
+        // dice goes high + hides
+        startAnim(0, 0.55, 1, 220);
+        showToast("Captured ✊");
+
+        setTimeout(() => {
+          if (dice.state === STATE_CAPTURING) dice.state = STATE_CAPTURED;
+        }, 230);
+
+        lastOpen = open;
+        return;
+      }
+
+      // FIST => PALM throw
+      if (lastOpen === false && open === true && (dice.state === STATE_CAPTURED || dice.state === STATE_CAPTURING)){
+        lastGestureAt = t;
+
+        const powerRaw = fistTrack.active ? fistTrack.power : 0;
+        const power = clamp(Math.max(powerRaw, POWER_MIN_THROW), 0, 1);
+        const dir = finalizeDirection();
+
+        fistTrack.active = false;
+        setPowerUI(0);
+
+        dice.state = STATE_THROWING;
+
+        // show dice (still high) then throw
+        startAnim(1, 1, 1, 120);
+
+        // decide value + score now
+        dice.value = 1 + ((Math.random()*6)|0);
+        commitRoll(dice.value);
+
+        // throw from hand
+        const from = handToStage(c);
+        const w = stage.clientWidth, h = stage.clientHeight;
+        const travel = lerp(Math.min(w,h)*0.10, Math.min(w,h)*0.46, power);
+
+        const to = {
+          x: clamp(from.x + dir.x * travel, 40, w-40),
+          y: clamp(from.y + dir.y * travel, 40, h-40),
+        };
+
+        const spin = lerp(2.5, 8.2, power) * (Math.random()<0.5?-1:1);
+        const dur = Math.round(lerp(640, 300, power));
+        const bounce = lerp(0, Math.min(w,h)*0.08, power);
+
+        dice.throwAnim = {
+          t0: t, dur, from, to,
+          rot0: (Math.random()*0.4 - 0.2),
+          rot1: (Math.random()*0.4 - 0.2) + spin,
+          bounce
+        };
+
+        showToast("Throw! 🎲");
+        lastOpen = open;
+        return;
+      }
+
+      // Ensure OPEN looks normal
+      if (dice.state === STATE_OPEN && open === true){
+        if (!dice.anim && (dice.visibleAlpha < 0.95 || dice.lift > 0.05)) startAnim(1, 1, 0, 180);
+      }
+
+      lastOpen = open;
+    });
+
+    // Camera
+    const video = document.getElementById('video');
+    let camera = null;
+
+    async function startCamera(){
+      try{
+        if (camera) return;
+        camera = new Camera(video, {
+          onFrame: async () => { await hands.send({ image: video }); },
+          width: 640,
+          height: 480
+        });
+        await camera.start();
+        statusPill.textContent = "Camera: ON";
+        showToast("Camera started");
+      } catch(e){
+        statusPill.textContent = "Camera error";
+        showToast(e.message || "Camera error");
+      }
+    }
+
+    function stopCamera(){
+      try { if (camera && camera.stop) camera.stop(); } catch {}
+      const stream = video.srcObject;
+      if (stream && stream.getTracks) stream.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+      camera = null;
+      statusPill.textContent = "Camera: OFF";
+      showToast("Camera stopped");
+    }
+
+    // Buttons
+    document.getElementById('btnStart').onclick = startCamera;
+    document.getElementById('btnStop').onclick = stopCamera;
+
+    document.getElementById('btnToggleControl').onclick = () => {
+      setControlEnabled(!controlEnabled);
+      showToast(controlEnabled ? "Control ON" : "Control OFF");
+    };
+
+    document.getElementById('btnRules').onclick = () => { rulesModal.style.display = 'grid'; };
+    document.getElementById('btnCloseRules').onclick = () => { rulesModal.style.display = 'none'; };
+
+    document.getElementById('btnResetAll').onclick = resetEverything;
+    document.getElementById('btnRestartPlayers2').onclick = resetEverything;
+
+    document.getElementById('btnNewMatch2').onclick = () => { resetMatchOnly(); showToast("New match started"); };
+    document.getElementById('btnNewMatch').onclick = () => { resetMatchOnly(); showToast("New match started"); };
+
+    // Setup
+    document.getElementById('btnGo').onclick = () => {
+      const n1 = normalizeName(document.getElementById('inP1').value) || 'Player 1';
+      const n2 = normalizeName(document.getElementById('inP2').value) || 'Player 2';
+      const rounds = parseInt(document.getElementById('inRounds').value, 10);
+      const throwsPer = Number.isFinite(rounds) ? Math.max(1, Math.min(50, rounds)) : 3;
+
+      const newKey = pairKey(n1,n2);
+      const oldKey = game.pairKey;
+
+      game.players[0].name = n1;
+      game.players[1].name = n2;
+      game.throwsPerPlayer = throwsPer;
+      game.pairKey = newKey;
+
+      resetMatchOnly();
+
+      if (oldKey !== newKey) loadOrInitRecord();
+      else updateRecordUI();
+
+      setupModal.style.display = 'none';
+      updateScoreboard();
+      updateTurnUI();
+      showToast("Ready! Start camera & enable control.");
+
+      resizeStage();
+      render();
+    };
+
+    document.getElementById('btnNewMatch').onclick = () => { resetMatchOnly(); showToast("New match started"); };
+    document.getElementById('btnNewMatch2').onclick = () => { resetMatchOnly(); showToast("New match started"); };
+
+    // init
+    resizeStage();
+    setControlEnabled(false);
+    const freezeInput = document.getElementById('freezeInput');
+freezeSeconds = Number(freezeInput?.value || 3);
+
+freezeInput?.addEventListener('input', () => {
+  const v = Number(freezeInput.value);
+  freezeSeconds = Number.isFinite(v) ? clamp(v, 0, 30) : 3;
+  showToast(`Freeze set to ${freezeSeconds}s`);
+});
+    updateScoreboard();
+    updateTurnUI();
+    gameStateEl.textContent = "Waiting…";
+  </script>
+</body>
+</html>
